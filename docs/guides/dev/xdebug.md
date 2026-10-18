@@ -6,7 +6,7 @@ The bundled PHP image has Xdebug enabled in `debug` mode and uses `client_host=x
 
 Configure your IDE to listen for Xdebug and map `/var/www/html/w` to your MediaWiki checkout. Xdebug connects from the PHP container to the IDE; the IDE must be reachable at its configured host and port.
 
-`xdebug://gateway` uses the container's gateway on Linux. Docker Desktop, rootless Docker or a remote VM may need another reachable address. If your runtime provides `host.docker.internal`, for example:
+`xdebug://gateway` resolves the container's current gateway on Linux inside Xdebug itself. There is no host IP to calculate or save, and network recreation does not leave a stale address. Docker Desktop, rootless Docker or a remote VM may need another reachable address. If your runtime provides `host.docker.internal`, for example:
 
 ```sh
 mw dev env set MEDIAWIKI_XDEBUG_CONFIG 'client_host=host.docker.internal client_port=9003'
@@ -26,6 +26,30 @@ mw dev mediawiki exec -- XDEBUG_SESSION=1 php maintenance/run.php Version
 ```
 
 For an IDE that needs an explicit server mapping, add `PHP_IDE_CONFIG='serverName=YOUR_SERVER'` before `php` in that command.
+
+## Performance and profiling
+
+Debug mode has runtime overhead even without a debugging trigger. An untriggered
+request does not connect to an IDE, but PHP still pays the debugger's execution
+cost. In the bundled image, enabling debug mode also disables OPcache's optimiser,
+even without an active debugging session. For performance measurements or workloads where debugging is unnecessary,
+use `MEDIAWIKI_XDEBUG_MODE=off` and recreate the PHP services as shown below.
+
+Profiling is separate from step debugging. The default mode is only `debug`, so
+neither ordinary requests nor a profiling trigger creates `cachegrind.out` files.
+Do not enable `profile` as a general debugging prerequisite. A triggered debug
+request with no reachable IDE still completes, but can log a connection failure
+and wait up to Xdebug's connection timeout (normally 200 ms).
+
+For a one-off CLI command, override the mode without recreating containers:
+
+```sh
+mw dev mediawiki exec -- XDEBUG_MODE=off composer phpunit tests/phpunit/unit/includes/Xml/XmlTest.php
+mw dev mediawiki exec -- XDEBUG_MODE=debug XDEBUG_SESSION=1 php maintenance/run.php Version
+```
+
+These overrides affect only that command. Web requests keep the PHP service's
+configured mode until you recreate it.
 
 ## Inspect or disable Xdebug
 
