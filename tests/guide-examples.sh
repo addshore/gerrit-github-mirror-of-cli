@@ -19,6 +19,13 @@ test_xdebug_settings() {
     local mw="$1"
     # Guide: xdebug.md. Verify runtime settings after recreation, not just Compose output.
     test_command "$mw" dev mediawiki exec -- php --ri xdebug 'xdebug.client_host.*xdebug://gateway'
+    test_command_success "$mw" dev mediawiki exec -- php -r 'exit(xdebug_info("mode") === ["debug"] && xdebug_get_profiler_filename() === false ? 0 : 1);'
+    # Exercise actual CLI and FPM debugger connections on both Docker bridge types.
+    # Reuse the exact PHP image running in this integration environment.
+    local php_container php_image
+    php_container=$("$mw" dev compose ps -- -q mediawiki)
+    php_image=$(docker inspect --format '{{.Config.Image}}' "$php_container")
+    test_command_success python3 "$SCRIPT_DIR/xdebug-defaults.py" --image "$php_image"
     test_command_success "$mw" dev env set MEDIAWIKI_XDEBUG_MODE off
     test_command_success "$mw" dev mediawiki create --force-recreate
     test_command_success "$mw" dev mediawiki exec -- php -r 'exit(xdebug_info("mode") === [] ? 0 : 1);'
