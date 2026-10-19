@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	maxLongHelpWords = 200
+	maxLongHelpWords = 300
 	maxExampleWords  = 150
 	maxExampleLines  = 12
 )
